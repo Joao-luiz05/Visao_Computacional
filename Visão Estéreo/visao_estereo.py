@@ -4,9 +4,10 @@
 
 import cv2 as cv
 import numpy as np
+import matplotlib.pyplot as plt
 
-imgL = cv.imread('im0.png', cv.COLOR_BGR2GRAY)
-imgR = cv.imread('im1.png', cv.COLOR_BGR2GRAY)
+imgL = cv.imread('jadeL.png', cv.COLOR_BGR2GRAY)
+imgR = cv.imread('jadeR.png', cv.COLOR_BGR2GRAY)
 
 window_size = 3
 
@@ -46,4 +47,10 @@ filteredImg = np.uint8(filteredImg)
 
 # cv.imshow('filtered', filteredImg) Corrigir o tamanho da janela de exibição
 cv.imwrite('filtered.jpg', filteredImg)
+
+plt.imshow(filteredImg, cmap='jet')
+plt.colorbar()
+plt.savefig("color_filtered.jpg")
+plt.show()
+
 cv.waitKey(0)
