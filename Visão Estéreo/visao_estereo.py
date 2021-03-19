@@ -5,14 +5,34 @@
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
+import re
 
+def data_reader(file_name):
+# Função para leitura de dados de calibração em arquivo .txt
+
+    lines = []
+    data = []
+
+    with open(file_name) as f:
+        lines = f.readlines() # Armazenar linhas do arquivo em lista
+
+    for i in range(len(lines)): data.append(re.findall(r"[-+]?\d*\.\d+|\d+", lines[i]))
+    # Coleta linha-a-linha de números relevantes na lista
+
+    del data[0][0]; # Remoção dos números irrelevantes que identificam o nome de cada câmera
+    del data[1][0];
+
+    return data
+
+calib_jade_data = []
+calib_table_data = []
 imgL = cv.imread('jadeL.png', cv.COLOR_BGR2GRAY)
 imgR = cv.imread('jadeR.png', cv.COLOR_BGR2GRAY)
 
 window_size = 3
 
 left_matcher = cv.StereoSGBM_create(
-    minDisparity=-1,
+    minDisparity=16,
     numDisparities=40*16,  # Numero maximo de disparidades (640 para essa imagem)
     blockSize=window_size,
     P1=8 * 3 * window_size,
@@ -54,3 +74,6 @@ plt.savefig("color_filtered.jpg")
 plt.show()
 
 cv.waitKey(0)
+
+calib_jade_data = data_reader('calib_jade.txt')
+calib_table_data = data_reader('calib_table.txt')
