@@ -27,10 +27,52 @@ def data_reader(file_name):
 
 	return data
 
+def world_coordinates (img, calib_data):
+
+	cx = float(calib_data[0][2])
+	cy = float(calib_data[0][5])
+	f = float(calib_data[0][0])
+	bline = float(calib_data[3][0])
+	doff = float(calib_data[2][0])
+
+	Q = np.float32([[1, 0, 0, -cx],
+                    [0, 1, 0, -cy],
+                    [0, 0, 0, f], 
+                    [0, 0, -1/bline, doff/bline]])
+
+
+	# Utilizamos a matriz Q para realizar uma reprojeção, convertendo pixels com
+	# valor de disparidade na sua sequência correspondente de coordenadas [x, y, z]
+	world_coordinates = cv.reprojectImageTo3D(img, Q)
+	# print(world_coordinates)
+
+	pass
+
+def image_depth (img, calib_data):
+
+	f = float(calib_data[0][0])
+	bline = float(calib_data[3][0])
+	doff = float(calib_data[2][0])
+	
+	Z = bline * f / (np.array(img) + doff)
+
+	filtered_depth_image = cv.normalize(src=Z, dst=Z, beta=0, alpha=254, norm_type=cv.NORM_MINMAX)
+	filtered_depth_image = np.uint8(filtered_depth_image)
+	
+	cv.imshow('DepthMap', filtered_depth_image)
+	cv.imwrite('DepthMap.jpg', filtered_depth_image)
+
+	# Podemos mapear os valores da imagem de profundidade de volta para unidades em milímetros
+	# por um simples ajuste de escala:
+	# original = np.array((filtered_depth_image - minimo) / float(maximo))
+
+	pass
+
 def disparity_calculator(left_image, right_image, disparities_num):
 # Função que calcula mapa de disparidades dadas duas imagens estereo-retificadas
 
 	window_size = 3
+	disparity_arrays = []
 
 	left_matcher = cv.StereoSGBM_create(
 	    minDisparity=16,
@@ -60,6 +102,7 @@ def disparity_calculator(left_image, right_image, disparities_num):
 	dispr = right_matcher.compute(right_image, left_image)
 	displ = np.int16(displ)
 	dispr = np.int16(dispr)
+
 	filteredImg = wls_filter.filter(displ, left_image, None, dispr)
 
 	# Normaliza o filtro
@@ -79,7 +122,7 @@ disparities_num = int(calib_jade_data[6][0])
 
 filteredImg = disparity_calculator(imgL, imgR, disparities_num)
 
-# cv.imshow('filtered', filteredImg) Corrigir o tamanho da janela de exibição
+cv.imshow('filtered', filteredImg) # Corrigir o tamanho da janela de exibição
 cv.imwrite('filtered.jpg', filteredImg)
 
 # Mostra imagem de disparidades com mapa de cores, padrão "jet"
@@ -89,3 +132,7 @@ plt.savefig("color_filtered.jpg")
 plt.show()
 
 cv.waitKey(0)
+
+world_coordinates(filteredImg, calib_jade_data)
+
+image_depth(filteredImg, calib_jade_data)
