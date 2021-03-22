@@ -5,6 +5,7 @@
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
+import os.path
 
 def data_reader(file_name):
 # Função para leitura de dados de calibração em arquivo .txt
@@ -28,6 +29,8 @@ def data_reader(file_name):
 	return data
 
 def world_coordinates (img, calib_data):
+# Função que utiliza dados de calibração das câmeras utilizadas para obter coordenadas 
+# 3D dos pontos no espaço
 
 	cx = float(calib_data[0][2])
 	cy = float(calib_data[0][5])
@@ -49,6 +52,8 @@ def world_coordinates (img, calib_data):
 	pass
 
 def image_depth (img, calib_data):
+# Produz um mapa de profundidade, originalmente em milímetros mas normalizado para a escala 0 - 254 em preto e branco
+# para os objetos na imagem
 
 	f = float(calib_data[0][0])
 	bline = float(calib_data[3][0])
@@ -60,7 +65,7 @@ def image_depth (img, calib_data):
 	filtered_depth_image = np.uint8(filtered_depth_image)
 	
 	cv.imshow('DepthMap', filtered_depth_image)
-	cv.imwrite('DepthMap.jpg', filtered_depth_image)
+	cv.imwrite(os.path.join(data[0],'DepthMap.jpg'), filtered_depth_image)
 
 	# Podemos mapear os valores da imagem de profundidade de volta para unidades em milímetros
 	# por um simples ajuste de escala:
@@ -68,24 +73,23 @@ def image_depth (img, calib_data):
 
 	pass
 
-def disparity_calculator(left_image, right_image, disparities_num):
+def disparity_calculator(left_image, right_image, disparities_num, min_num):
 # Função que calcula mapa de disparidades dadas duas imagens estereo-retificadas
 
 	window_size = 3
-	disparity_arrays = []
 
 	left_matcher = cv.StereoSGBM_create(
-	    minDisparity=16,
-	    numDisparities= disparities_num,  # Numero maximo de disparidades (640 para essa imagem)
-	    blockSize=window_size,
-	    P1=8 * 3 * window_size,
-	    P2=32 * 3 * window_size,
-	    disp12MaxDiff=12,
-	    uniquenessRatio=10,
-	    speckleWindowSize=50,
-	    speckleRange=32,
-	    preFilterCap=63,
-	    mode=cv.STEREO_SGBM_MODE_SGBM_3WAY
+	    minDisparity = min_num,
+	    numDisparities = disparities_num,  # Numero maximo de disparidades (600 para essa imagem)
+	    blockSize = window_size,
+	    P1 = 8*3*window_size,
+	    P2 = 32*3*window_size,
+	    disp12MaxDiff = 12,
+	    uniquenessRatio = 10,
+	    speckleWindowSize = 50,
+	    speckleRange = 32,
+	    preFilterCap = 63,
+	    mode = cv.STEREO_SGBM_MODE_SGBM_3WAY
 	)
 	right_matcher = cv.ximgproc.createRightMatcher(left_matcher)
 
@@ -102,7 +106,6 @@ def disparity_calculator(left_image, right_image, disparities_num):
 	dispr = right_matcher.compute(right_image, left_image)
 	displ = np.int16(displ)
 	dispr = np.int16(dispr)
-
 	filteredImg = wls_filter.filter(displ, left_image, None, dispr)
 
 	# Normaliza o filtro
@@ -113,26 +116,39 @@ def disparity_calculator(left_image, right_image, disparities_num):
 
 # -------------------------------------------------------------------------------
 
-calib_jade_data = data_reader('calib_jade.txt')
-calib_table_data = data_reader('calib_table.txt')
+# Define o diretório anterior ao diretório do programa
+base = os.path.abspath(os.path.dirname(__file__))
+base_new = base.replace('\\src', '')
 
-imgL = cv.imread('jadeL.png', cv.COLOR_BGR2GRAY)
-imgR = cv.imread('jadeR.png', cv.COLOR_BGR2GRAY)
-disparities_num = int(calib_jade_data[6][0])
+# Define os vetores das imagens e dos caminhos para as imagens
+images = ['im0.png', 'im1.png', 'MorpheusL.jpg', 'MorpheusR.jpg', 'warriorL.jpg', 'warriorR.jpg']
+data = [os.path.join(base_new, 'data', 'Middlebury', 'Jadeplant-perfect'),
+		os.path.join(base_new, 'data', 'Middlebury', 'Playtable-perfect'),
+		os.path.join(base_new, 'data', 'FurukawaPonce')]
 
-filteredImg = disparity_calculator(imgL, imgR, disparities_num)
+imgL = cv.imread(os.path.join(data[0], images[0]), cv.COLOR_BGR2GRAY)
+imgR = cv.imread(os.path.join(data[0], images[1]), cv.COLOR_BGR2GRAY)
 
-cv.imshow('filtered', filteredImg) # Corrigir o tamanho da janela de exibição
-cv.imwrite('filtered.jpg', filteredImg)
+calib_jade_data = data_reader(os.path.join(data[0], 'calib.txt'))
+calib_table_data = data_reader(os.path.join(data[1], 'calib.txt'))
+
+disparities_num = int(calib_jade_data[9][0])
+min_disp = int(calib_jade_data[8][0])
+
+filteredImg = disparity_calculator(imgL, imgR, disparities_num, min_disp)
+
+# Cria a imagem no diretório espeficidado pelo caminho, nesse
+# caso, é o mesmo diretório da imagem que ele leu
+#cv.imshow('filtered', filteredImg) Corrigir o tamanho da janela de exibição
+cv.imwrite(os.path.join(data[0],'filtered.jpg'), filteredImg)
 
 # Mostra imagem de disparidades com mapa de cores, padrão "jet"
 plt.imshow(filteredImg, cmap='jet')
 plt.colorbar()
-plt.savefig("color_filtered.jpg")
+plt.savefig(os.path.join(data[0], 'color_filtered.jpg'))
 plt.show()
 
-cv.waitKey(0)
-
 world_coordinates(filteredImg, calib_jade_data)
-
 image_depth(filteredImg, calib_jade_data)
+
+cv.waitKey(0)
